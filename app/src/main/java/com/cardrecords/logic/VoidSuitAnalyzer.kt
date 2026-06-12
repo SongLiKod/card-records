@@ -49,16 +49,17 @@ class VoidSuitAnalyzer(private val tracker: CardTracker) {
         val analyses = analyze()
         return analyses.joinToString("\n") { analysis ->
             val voidText = if (analysis.voidSuits.isEmpty()) {
-                "无缺门"
+                "鏃犵己闂?
             } else {
                 analysis.voidSuits.joinToString(" ") { it.symbol }
             }
             val confidenceText = when {
-                analysis.confidence >= 0.8 -> "✓"
+                analysis.confidence >= 0.8 -> "鉁?
                 analysis.confidence >= 0.5 -> "?"
-                else -> "?"
+                else -> "✗"
             }
-            "${analysis.playerLabel}：缺 $voidText $confidenceText"
+            "${analysis.playerLabel}锛氱己 $voidText $confidenceText"
         }
     }
 }
+
