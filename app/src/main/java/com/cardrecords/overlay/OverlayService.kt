@@ -43,14 +43,8 @@ class OverlayService : Service() {
             ACTION_SHOW -> showOverlay()
             ACTION_HIDE -> stopSelf()
             ACTION_UPDATE -> updateDisplay()
-            ACTION_APPLY_CONFIG -> {
-                updateOverlayAlpha()
-                updateDisplay()
-            }
-            ACTION_RESET -> {
-                app.resetGame()
-                updateDisplay()
-            }
+            ACTION_APPLY_CONFIG -> { updateOverlayAlpha(); updateDisplay() }
+            ACTION_RESET -> { app.resetGame(); updateDisplay() }
         }
         return START_STICKY
     }
@@ -59,11 +53,9 @@ class OverlayService : Service() {
 
     private fun showOverlay() {
         if (overlayView != null) return
-
         val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
         overlayView = inflater.inflate(R.layout.overlay_collapsed, null) as ViewGroup
         expandedView = inflater.inflate(R.layout.overlay_expanded, null) as ViewGroup
-
         setupCollapsedView()
         setupExpandedView()
         showCollapsedView()
@@ -72,39 +64,24 @@ class OverlayService : Service() {
 
     private fun setupCollapsedView() {
         val view = overlayView ?: return
-
-        view.setOnClickListener {
-            if (!isDragging) toggleExpand()
-        }
-
+        view.setOnClickListener { if (!isDragging) toggleExpand() }
         view.findViewById<View>(R.id.drag_handle).setOnTouchListener { _, event ->
-            handleDrag(event, view)
-            true
+            handleDrag(event, view); true
         }
-
-        view.findViewById<ImageButton>(R.id.btn_close).setOnClickListener {
-            stopSelf()
-        }
+        view.findViewById<ImageButton>(R.id.btn_close).setOnClickListener { stopSelf() }
     }
 
     private fun setupExpandedView() {
-        expandedView?.findViewById<ImageButton>(R.id.btn_collapse)?.setOnClickListener {
-            toggleExpand()
-        }
+        expandedView?.findViewById<ImageButton>(R.id.btn_collapse)?.setOnClickListener { toggleExpand() }
     }
 
     private fun showCollapsedView() {
         try { expandedView?.let { windowManager.removeViewImmediate(it) } } catch (_: Exception) {}
         try { overlayView?.let { windowManager.removeViewImmediate(it) } } catch (_: Exception) {}
-
         params = buildLayoutParams(
             isPassThrough = app.gameConfig.passThrough,
             alpha = app.gameConfig.transparencyPercent.coerceIn(10, 90) / 100f
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 50; y = 200
-        }
-
+        ).apply { gravity = Gravity.TOP or Gravity.START; x = 50; y = 200 }
         overlayView?.let { windowManager.addView(it, params) }
         isExpanded = false
         updateMiniDisplay()
@@ -112,15 +89,10 @@ class OverlayService : Service() {
 
     private fun showExpandedView() {
         try { overlayView?.let { windowManager.removeViewImmediate(it) } } catch (_: Exception) {}
-
         params = buildLayoutParams(
             isPassThrough = false,
             alpha = ((app.gameConfig.transparencyPercent + 10).coerceIn(10, 90)) / 100f
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 50; y = 200
-        }
-
+        ).apply { gravity = Gravity.TOP or Gravity.START; x = 50; y = 200 }
         expandedView?.let { windowManager.addView(it, params) }
         isExpanded = true
         populateExpandedView()
@@ -131,63 +103,39 @@ class OverlayService : Service() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                 WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
                 (if (isPassThrough) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0)
-
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else WindowManager.LayoutParams.TYPE_PHONE,
             flags,
             PixelFormat.TRANSLUCENT
-        ).apply {
-            this.alpha = alpha
-        }
+        ).apply { this.alpha = alpha }
     }
 
     private fun updateOverlayAlpha() {
-        val alpha = app.gameConfig.transparencyPercent.coerceIn(10, 90) / 100f
         val passThrough = app.gameConfig.passThrough
-
-        if (isExpanded) {
-            params?.alpha = ((app.gameConfig.transparencyPercent + 10).coerceIn(10, 90)) / 100f
-        } else {
-            params?.alpha = alpha
-        }
-
+        if (isExpanded) { params?.alpha = ((app.gameConfig.transparencyPercent + 10).coerceIn(10, 90)) / 100f }
+        else { params?.alpha = app.gameConfig.transparencyPercent.coerceIn(10, 90) / 100f }
         val currentView = if (isExpanded) expandedView else overlayView
         if (currentView != null && params != null) {
             params!!.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                     WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
                     (if (passThrough && !isExpanded) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0)
-            try {
-                windowManager.updateViewLayout(currentView, params)
-            } catch (_: Exception) {}
+            try { windowManager.updateViewLayout(currentView, params) } catch (_: Exception) {}
         }
     }
 
-    private fun toggleExpand() {
-        if (isExpanded) showCollapsedView() else showExpandedView()
-    }
+    private fun toggleExpand() { if (isExpanded) showCollapsedView() else showExpandedView() }
 
     private fun handleDrag(event: MotionEvent, view: View) {
         when (event.action) {
-            MotionEvent.ACTION_DOWN -> {
-                isDragging = false
-                initialTouchX = event.rawX
-                initialTouchY = event.rawY
-                initialX = params?.x ?: 0
-                initialY = params?.y ?: 0
-            }
+            MotionEvent.ACTION_DOWN -> { isDragging = false; initialTouchX = event.rawX; initialTouchY = event.rawY; initialX = params?.x ?: 0; initialY = params?.y ?: 0 }
             MotionEvent.ACTION_MOVE -> {
-                val dx = (event.rawX - initialTouchX).toInt()
-                val dy = (event.rawY - initialTouchY).toInt()
+                val dx = (event.rawX - initialTouchX).toInt(); val dy = (event.rawY - initialTouchY).toInt()
                 if (kotlin.math.abs(dx) > 10 || kotlin.math.abs(dy) > 10) {
-                    isDragging = true
-                    params?.x = initialX + dx
-                    params?.y = initialY + dy
+                    isDragging = true; params?.x = initialX + dx; params?.y = initialY + dy
                     params?.let { windowManager.updateViewLayout(view, it) }
                 }
             }
@@ -197,75 +145,63 @@ class OverlayService : Service() {
     private fun startAutoRefresh() {
         refreshJob?.cancel()
         refreshJob = scope.launch {
-            while (isActive) {
-                updateDisplay()
-                delay(500)
-            }
+            while (isActive) { updateDisplay(); delay(500) }
         }
     }
 
-    fun updateDisplay() {
-        if (isExpanded) populateExpandedView() else updateMiniDisplay()
-    }
+    fun updateDisplay() { if (isExpanded) populateExpandedView() else updateMiniDisplay() }
 
     private fun updateMiniDisplay() {
         val view = overlayView ?: return
         try {
             val remaining = tracker.getRemainingCountBySuit()
-            view.findViewById<TextView>(R.id.tv_spade)?.text = "♠${remaining[Suit.SPADE] ?: 0}"
-            view.findViewById<TextView>(R.id.tv_heart)?.text = "♥${remaining[Suit.HEART] ?: 0}"
-            view.findViewById<TextView>(R.id.tv_club)?.text = "♣${remaining[Suit.CLUB] ?: 0}"
-            view.findViewById<TextView>(R.id.tv_diamond)?.text = "♦${remaining[Suit.DIAMOND] ?: 0}"
-            view.findViewById<TextView>(R.id.tv_score)?.text = "剩${tracker.getRemainingScoreValue()}分"
+            view.findViewById<TextView>(R.id.tv_spade)?.text = "${Suit.SPADE.symbol}${remaining[Suit.SPADE] ?: 0}"
+            view.findViewById<TextView>(R.id.tv_heart)?.text = "${Suit.HEART.symbol}${remaining[Suit.HEART] ?: 0}"
+            view.findViewById<TextView>(R.id.tv_club)?.text = "${Suit.CLUB.symbol}${remaining[Suit.CLUB] ?: 0}"
+            view.findViewById<TextView>(R.id.tv_diamond)?.text = "${Suit.DIAMOND.symbol}${remaining[Suit.DIAMOND] ?: 0}"
+            view.findViewById<TextView>(R.id.tv_score)?.text = "Score: ${tracker.getRemainingScoreValue()}"
         } catch (_: Exception) {}
     }
 
     private fun populateExpandedView() {
         val view = expandedView ?: return
         try {
-            // Remaining cards
             val remainingLayout = view.findViewById<LinearLayout>(R.id.layout_remaining_cards)
             remainingLayout?.removeAllViews()
             val remaining = tracker.getRemainingCardsBySuit()
             if (remaining.isEmpty()) {
-                remainingLayout?.addView(createTextItem("暂无", "#66FFFFFF"))
+                remainingLayout?.addView(createTextItem("--", "#66FFFFFF"))
             } else {
                 for ((suit, cards) in remaining) {
                     remainingLayout?.addView(createSuitRow(suit, cards, true))
                 }
             }
 
-            // Played cards
             val playedLayout = view.findViewById<LinearLayout>(R.id.layout_played_cards)
             playedLayout?.removeAllViews()
             val played = tracker.getPlayedCardNames()
             if (played.isEmpty()) {
-                playedLayout?.addView(createTextItem("暂无出牌记录", "#66FFFFFF"))
+                playedLayout?.addView(createTextItem("none", "#66FFFFFF"))
             } else {
                 playedLayout?.addView(createTextItem(played.joinToString(" "), "#88FFFFFF"))
             }
 
-            // Score stats
             val scoreLayout = view.findViewById<LinearLayout>(R.id.layout_score_stats)
             scoreLayout?.removeAllViews()
             val calculator = ScoreCalculator(tracker)
             val stats = calculator.getScoreStats()
-
             scoreLayout?.addView(createTextItem(stats.remainingDetail, "#FFFFD600", 11f))
-            scoreLayout?.addView(createTextItem("已吃：${stats.progressText}", "#FFFFFFFF", 12f, 4))
+            scoreLayout?.addView(createTextItem("Eaten: ${stats.progressText}", "#FFFFFFFF", 12f, 4))
 
-            // Score by suit
             val scoreBySuit = tracker.getScoreBySuit()
             for ((suit, info) in scoreBySuit) {
-                val suitColor = if (suit == Suit.HEART || suit == Suit.DIAMOND)
-                    "#FFE53935" else "#FFFFFF"
+                val suitColor = if (suit == Suit.HEART || suit == Suit.DIAMOND) "#FFE53935" else "#FFFFFF"
                 scoreLayout?.addView(createTextItem(
-                    "${suit.symbol} ${suit.displayName}：剩${info.remainingScore}分（余${info.remainingCount}张）",
+                    "${suit.symbol} ${suit.displayName}: left ${info.remainingScore}pts (${info.remainingCount}cards)",
                     suitColor, 11f
                 ))
             }
 
-            // Void suit analysis
             val voidLayout = view.findViewById<LinearLayout>(R.id.layout_void_analysis)
             voidLayout?.removeAllViews()
             val analyzer = VoidSuitAnalyzer(tracker)
@@ -275,56 +211,26 @@ class OverlayService : Service() {
 
     private fun createTextItem(text: String, colorHex: String, textSize: Float = 11f, topPadding: Int = 0): TextView {
         return TextView(this).apply {
-            this.text = text
-            setTextColor(Color.parseColor(colorHex))
-            this.textSize = textSize
+            this.text = text; setTextColor(Color.parseColor(colorHex)); this.textSize = textSize
             if (topPadding > 0) setPadding(0, topPadding, 0, 0)
         }
     }
 
     private fun createSuitRow(suit: Suit, cards: List<Card>, highlightScore: Boolean): LinearLayout {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 2, 0, 2)
-        }
-
-        val suitColor = if (suit == Suit.HEART || suit == Suit.DIAMOND)
-            Color.parseColor("#FFE53935") else Color.WHITE
-
-        row.addView(TextView(this).apply {
-            text = suit.symbol
-            setTextColor(suitColor)
-            textSize = 13f
-            setTypeface(null, Typeface.BOLD)
-        })
-
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 2, 0, 2) }
+        val suitColor = if (suit == Suit.HEART || suit == Suit.DIAMOND) Color.parseColor("#FFE53935") else Color.WHITE
+        row.addView(TextView(this).apply { text = suit.symbol; setTextColor(suitColor); textSize = 13f; setTypeface(null, Typeface.BOLD) })
         val cardText = cards.joinToString(" ") { card ->
-            if (highlightScore && card.rank.isScoreCard()) {
-                "〖${card.rank.display}〗"
-            } else {
-                card.rank.display
-            }
+            if (highlightScore && card.rank.isScoreCard()) { "[${card.rank.display}]" } else { card.rank.display }
         }
-
-        row.addView(TextView(this).apply {
-            text = cardText
-            setTextColor(Color.parseColor("#CCFFFFFF"))
-            textSize = 11f
-            setPadding(6, 0, 0, 0)
-        })
-
+        row.addView(TextView(this).apply { text = cardText; setTextColor(Color.parseColor("#CCFFFFFF")); textSize = 11f; setPadding(6, 0, 0, 0) })
         return row
     }
 
     override fun onDestroy() {
-        refreshJob?.cancel()
-        scope.cancel()
-        try {
-            overlayView?.let { windowManager.removeView(it) }
-            expandedView?.let { windowManager.removeView(it) }
-        } catch (_: Exception) {}
-        overlayView = null
-        expandedView = null
+        refreshJob?.cancel(); scope.cancel()
+        try { overlayView?.let { windowManager.removeView(it) }; expandedView?.let { windowManager.removeView(it) } } catch (_: Exception) {}
+        overlayView = null; expandedView = null
         super.onDestroy()
     }
 

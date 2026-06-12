@@ -121,7 +121,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         startService(overlayIntent)
 
-        Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show()
         finish()
     }
 }

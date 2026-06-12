@@ -8,7 +8,7 @@ class VoidSuitAnalyzer(private val tracker: CardTracker) {
         val playerIndex: Int,
         val playerLabel: String,
         val voidSuits: Set<Suit>,
-        val confidence: Float  // 0.0 ~ 1.0
+        val confidence: Float
     )
 
     fun analyze(): List<VoidAnalysis> {
@@ -31,15 +31,13 @@ class VoidSuitAnalyzer(private val tracker: CardTracker) {
 
     private fun calculateConfidence(playerIndex: Int, voidSuits: Set<Suit>): Float {
         if (voidSuits.isEmpty()) return 1.0f
-
         val playerCards = tracker.playedCards.filter { it.playerIndex == playerIndex }
         if (playerCards.isEmpty()) return 0.1f
 
         var totalWeight = 0f
         for (suit in voidSuits) {
             val cardsInSuit = playerCards.count { it.card.suit == suit }
-            val config = com.cardrecords.CardRecordsApp.instance.gameConfig
-            val ratio = cardsInSuit.toFloat() / config.cardsPerSuit.toFloat()
+            val ratio = cardsInSuit.toFloat() / com.cardrecords.CardRecordsApp.instance.gameConfig.cardsPerSuit.toFloat()
             totalWeight += minOf(ratio * 1.5f, 1.0f)
         }
         return (totalWeight / voidSuits.size).coerceIn(0.1f, 1.0f)
@@ -49,17 +47,16 @@ class VoidSuitAnalyzer(private val tracker: CardTracker) {
         val analyses = analyze()
         return analyses.joinToString("\n") { analysis ->
             val voidText = if (analysis.voidSuits.isEmpty()) {
-                "鏃犵己闂?
+                "no void"
             } else {
                 analysis.voidSuits.joinToString(" ") { it.symbol }
             }
             val confidenceText = when {
-                analysis.confidence >= 0.8 -> "鉁?
-                analysis.confidence >= 0.5 -> "?"
-                else -> "✗"
+                analysis.confidence >= 0.8f -> "[OK]"
+                analysis.confidence >= 0.5f -> "[?]"
+                else -> "[low]"
             }
-            "${analysis.playerLabel}锛氱己 $voidText $confidenceText"
+            "${analysis.playerLabel}: ${voidText} ${confidenceText}"
         }
     }
 }
-

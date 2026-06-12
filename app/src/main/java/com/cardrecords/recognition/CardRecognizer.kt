@@ -143,8 +143,8 @@ class CardRecognizer {
 
     /**
      * Detect suit by looking for suit-specific symbols or colors.
-     * ♠♣ - dark/black
-     * ♥♦ - red
+     * ??- dark/black
+     * ??- red
      */
     private fun detectSuit(bitmap: Bitmap): Suit? {
         val width = bitmap.width
@@ -165,15 +165,15 @@ class CardRecognizer {
                     val g = Color.green(pixel)
                     val b = Color.blue(pixel)
 
-                    // Red detection (♥♦)
+                    // Red detection (??
                     if (r > 150 && g < 100 && b < 100) redCount++
-                    // Dark detection (♠♣)
+                    // Dark detection (??
                     if (r < 80 && g < 80 && b < 80) blackCount++
                 } catch (_: Exception) {}
             }
         }
 
-        // Cannot reliably distinguish between ♠/♣ or ♥/♦ via color alone
+        // Cannot reliably distinguish between ????or ????via color alone
         // Additional shape analysis would be needed
         return if (redCount > blackCount) {
             Suit.HEART  // or DIAMOND - approximated
