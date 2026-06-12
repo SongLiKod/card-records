@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="overlay_bg">#B01A1A2E</color>
+    <color name="overlay_bg_expanded">#CC1A1A2E</color>
+    <color name="spade">#FF000000</color>
+    <color name="heart">#FFE53935</color>
+    <color name="club">#FF000000</color>
+    <color name="diamond">#FFE53935</color>
+    <color name="score_high">#FFFFD600</color>
+    <color name="void_suit">#FFEF5350</color>
+    <color name="card_normal">#FFE0E0E0</color>
+    <color name="card_played">#FF666666</color>
+    <color name="accent">#FF7C4DFF</color>
+</resources>

@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="game_types">
+        <item>1副牌（4人，总分100分）</item>
+        <item>2副牌（4人，总分200分）</item>
+        <item>3副牌（6人，总分300分）</item>
+        <item>4副牌（8人，总分400分）</item>
+    </string-array>
+    <string-array name="game_type_values">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
+    <string-array name="level_values">
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>J</item>
+        <item>Q</item>
+        <item>K</item>
+        <item>A</item>
+    </string-array>
+</resources>

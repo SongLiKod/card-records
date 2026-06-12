@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">拖拉机记牌器</string>
+    <string name="overlay_channel_name">记牌悬浮窗</string>
+    <string name="overlay_channel_desc">显示记牌器悬浮窗</string>
+    <string name="start_service">启动悬浮窗</string>
+    <string name="stop_service">停止悬浮窗</string>
+    <string name="settings">设置</string>
+    <string name="game_type">牌局类型</string>
+    <string name="one_deck">1副牌（4人）</string>
+    <string name="two_decks">2副牌（4人）</string>
+    <string name="three_decks">3副牌（6人）</string>
+    <string name="four_decks">4副牌（8人）</string>
+    <string name="transparency">透明度</string>
+    <string name="pass_through">穿透模式</string>
+    <string name="auto_capture">自动识别</string>
+    <string name="request_overlay_permission">需要悬浮窗权限</string>
+    <string name="request_notification_permission">需要通知权限</string>
+    <string name="remaining_cards">剩余牌</string>
+    <string name="played_cards">已出牌</string>
+    <string name="score_stats">分数统计</string>
+    <string name="void_analysis">断门分析</string>
+    <string name="remaining_score">剩余分数</string>
+    <string name="total_score">总分</string>
+    <string name="capturing">正在截取屏幕…</string>
+    <string name="start_capture">开始截屏</string>
+    <string name="stop_capture">停止截屏</string>
+</resources>
