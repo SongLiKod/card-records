@@ -1,5 +1,7 @@
 package com.cardrecords.model
 
+import android.content.Context
+
 enum class Suit(val symbol: String, val displayName: String) {
     SPADE("♠", "黑桃"),
     HEART("♥", "红心"),
@@ -107,8 +109,8 @@ data class GameConfig(
         private const val KEY_PASS_THROUGH = "pass_through"
         private const val KEY_AUTO_CAPTURE = "auto_capture"
 
-        fun load(context: android.content.Context): GameConfig {
-            val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        fun load(context: Context): GameConfig {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             return GameConfig(
                 numberOfDecks = prefs.getInt(KEY_DECKS, 2),
                 currentLevel = prefs.getInt(KEY_LEVEL, 2),
@@ -119,14 +121,14 @@ data class GameConfig(
             )
         }
 
-        fun GameConfig.save(context: android.content.Context) {
-            context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE).edit().apply {
-                putInt(KEY_DECKS, numberOfDecks)
-                putInt(KEY_LEVEL, currentLevel)
-                putInt(KEY_PLAYERS, playerCount)
-                putInt(KEY_TRANSPARENCY, transparencyPercent)
-                putBoolean(KEY_PASS_THROUGH, passThrough)
-                putBoolean(KEY_AUTO_CAPTURE, autoCapture)
+        fun saveConfig(context: Context, config: GameConfig) {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().apply {
+                putInt(KEY_DECKS, config.numberOfDecks)
+                putInt(KEY_LEVEL, config.currentLevel)
+                putInt(KEY_PLAYERS, config.playerCount)
+                putInt(KEY_TRANSPARENCY, config.transparencyPercent)
+                putBoolean(KEY_PASS_THROUGH, config.passThrough)
+                putBoolean(KEY_AUTO_CAPTURE, config.autoCapture)
                 apply()
             }
         }

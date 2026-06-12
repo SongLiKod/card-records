@@ -20,6 +20,7 @@ import androidx.core.app.NotificationCompat
 import com.cardrecords.CardRecordsApp
 import com.cardrecords.R
 import com.cardrecords.overlay.OverlayService
+import kotlinx.coroutines.*
 
 class ScreenCaptureService : Service() {
 
@@ -30,7 +31,8 @@ class ScreenCaptureService : Service() {
     private var isCapturing = false
 
     private val cardRecognizer = CardRecognizer()
-    private var captureIntervalMs = 500L
+    private var captureIntervalMs = 1000L
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     override fun onCreate() {
         super.onCreate()
@@ -41,7 +43,12 @@ class ScreenCaptureService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
-                val data = intent.getParcelableExtra(EXTRA_DATA, android.content.Intent::class.java)
+                val data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(EXTRA_DATA, Intent::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(EXTRA_DATA)
+                }
                 if (resultCode != -1 && data != null) {
                     startCapture(resultCode, data)
                 }
@@ -92,16 +99,22 @@ class ScreenCaptureService : Service() {
         captureHandler?.post(object : Runnable {
             override fun run() {
                 if (!isCapturing) return
-
                 val image = imageReader?.acquireLatestImage()
-                image?.let { processImage(it) }
-
+                if (image != null) {
+                    processImageAsync(image)
+                }
                 captureHandler?.postDelayed(this, captureIntervalMs)
             }
         })
     }
 
-    private fun processImage(image: Image) {
+    private fun processImageAsync(image: Image) {
+        scope.launch {
+            processImage(image)
+        }
+    }
+
+    private suspend fun processImage(image: Image) {
         try {
             val bitmap = imageToBitmap(image)
             val recognizedCards = cardRecognizer.recognizeCards(bitmap)
@@ -113,9 +126,7 @@ class ScreenCaptureService : Service() {
                         tracker.recordPlayedCard(card, 0)
                     }
                 }
-
-                // Update overlay
-                val updateIntent = Intent(this, OverlayService::class.java).apply {
+                val updateIntent = Intent(this@ScreenCaptureService, OverlayService::class.java).apply {
                     action = OverlayService.ACTION_UPDATE
                 }
                 startService(updateIntent)
@@ -145,6 +156,7 @@ class ScreenCaptureService : Service() {
 
     private fun stopCapture() {
         isCapturing = false
+        scope.cancel()
         try {
             mediaProjection?.stop()
             imageReader?.close()

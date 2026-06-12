@@ -30,7 +30,7 @@ class CardRecordsApp : Application() {
 
     fun updateConfig(config: GameConfig) {
         gameConfig = config
-        gameConfig.save(this)
+        GameConfig.saveConfig(this, config)
         cardTracker = CardTracker(config)
     }
 

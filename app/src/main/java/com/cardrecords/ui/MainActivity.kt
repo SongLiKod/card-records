@@ -35,7 +35,14 @@ class MainActivity : AppCompatActivity() {
 
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { checkPermissionsAndStart() }
+    ) {
+        // After returning from overlay permission settings, try to start
+        if (checkOverlayPermission()) {
+            startOverlayService()
+        } else {
+            Toast.makeText(this, "需要悬浮窗权限才能启动", Toast.LENGTH_LONG).show()
+        }
+    }
 
     private val capturePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -185,7 +192,6 @@ class MainActivity : AppCompatActivity() {
             .setMessage("确定要重置所有出牌记录和统计数据吗？")
             .setPositiveButton("确定") { _, _ ->
                 CardRecordsApp.instance.resetGame()
-                // Also notify overlay if active
                 if (isOverlayActive) {
                     Intent(this, OverlayService::class.java).apply {
                         action = OverlayService.ACTION_RESET
@@ -207,24 +213,20 @@ class MainActivity : AppCompatActivity() {
         val suitNames = suits.map { "${it.symbol} ${it.displayName}" }.toTypedArray()
         val rankNames = ranks.map { it.display }.toTypedArray()
 
-        val checkedSuit = intArrayOf(0)
-        val checkedRank = intArrayOf(0)
-
         val builder = AlertDialog.Builder(this)
         builder.setTitle("手动添加已出牌")
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(40, 20, 40, 20)
+            setPadding(60, 30, 60, 30)
         }
 
-        // Suit selection
+        // Suit
         layout.addView(TextView(this).apply {
-            text = "选择花色："
+            text = "花色："
             setTextColor(-0x1)
             textSize = 15f
         })
-
         val suitSpinner = Spinner(this)
         ArrayAdapter(this, android.R.layout.simple_spinner_item, suitNames).also { adapter ->
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -232,14 +234,13 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(suitSpinner)
 
-        // Rank selection
+        // Rank
         layout.addView(TextView(this).apply {
-            text = "选择牌面："
+            text = "牌面："
             setTextColor(-0x1)
             textSize = 15f
             setPadding(0, 12, 0, 0)
         })
-
         val rankSpinner = Spinner(this)
         ArrayAdapter(this, android.R.layout.simple_spinner_item, rankNames).also { adapter ->
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -255,14 +256,13 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(jokerCheck)
 
-        // Player selection
+        // Player
         layout.addView(TextView(this).apply {
             text = "出牌玩家："
             setTextColor(-0x1)
             textSize = 15f
             setPadding(0, 12, 0, 0)
         })
-
         val playerNames = (0 until config.playerCount).map {
             PlayerPosition.fromIndex(it).label
         }.toTypedArray()
@@ -280,7 +280,6 @@ class MainActivity : AppCompatActivity() {
             textSize = 15f
             setPadding(0, 12, 0, 0)
         })
-
         val countPicker = NumberPicker(this).apply {
             minValue = 1
             maxValue = config.numberOfDecks.coerceAtMost(4)
@@ -312,14 +311,12 @@ class MainActivity : AppCompatActivity() {
                 tracker.recordPlayedCard(card, playerIdx)
             }
 
-            // Update overlay
             if (isOverlayActive) {
                 Intent(this, OverlayService::class.java).apply {
                     action = OverlayService.ACTION_UPDATE
                     startService(this)
                 }
             }
-
             Toast.makeText(this, "已添加 ${card.displayName} × $count", Toast.LENGTH_SHORT).show()
             updateUI()
         }
