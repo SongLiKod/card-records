@@ -1,4 +1,4 @@
-﻿package com.cardrecords.recognition
+package com.cardrecords.recognition
 
 import android.content.Context
 import android.graphics.Bitmap

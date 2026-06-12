@@ -1,4 +1,4 @@
-﻿package com.cardrecords.recognition
+package com.cardrecords.recognition
 
 import android.app.*
 import android.content.Context

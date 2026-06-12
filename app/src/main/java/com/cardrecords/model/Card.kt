@@ -1,4 +1,4 @@
-﻿package com.cardrecords.model
+package com.cardrecords.model
 
 enum class Suit(val symbol: String, val displayName: String) {
     SPADE("♠", "黑桃"),

@@ -1,4 +1,4 @@
-﻿package com.cardrecords.logic
+package com.cardrecords.logic
 
 import com.cardrecords.model.*
 import com.cardrecords.CardRecordsApp

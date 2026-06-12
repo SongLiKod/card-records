@@ -1,4 +1,4 @@
-﻿package com.cardrecords.ui
+package com.cardrecords.ui
 
 import android.Manifest
 import android.app.Activity

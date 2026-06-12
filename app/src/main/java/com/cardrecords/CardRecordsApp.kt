@@ -1,4 +1,4 @@
-﻿package com.cardrecords
+package com.cardrecords
 
 import android.app.Application
 import android.app.NotificationChannel

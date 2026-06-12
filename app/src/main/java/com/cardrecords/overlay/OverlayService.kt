@@ -1,4 +1,4 @@
-﻿package com.cardrecords.overlay
+package com.cardrecords.overlay
 
 import android.app.*
 import android.content.Context
