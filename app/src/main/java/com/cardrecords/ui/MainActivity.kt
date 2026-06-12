@@ -36,11 +36,10 @@ class MainActivity : AppCompatActivity() {
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        // After returning from overlay permission settings, try to start
         if (checkOverlayPermission()) {
             startOverlayService()
         } else {
-            Toast.makeText(this, "需要悬浮窗权限才能启动", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "闇€瑕佹偓娴獥鏉冮檺鎵嶈兘鍚姩", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -50,7 +49,7 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             startCaptureService(result.resultCode, result.data!!)
         } else {
-            Toast.makeText(this, "需要屏幕截取权限才能自动识别", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "闇€瑕佸睆骞曟埅鍙栨潈闄愭墠鑳借嚜鍔ㄨ瘑鍒?, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -87,9 +86,9 @@ class MainActivity : AppCompatActivity() {
         val tracker = app.cardTracker
 
         val deckText = when (config.numberOfDecks) {
-            1 -> "1副牌（4人）"; 2 -> "2副牌（4人）"
-            3 -> "3副牌（6人）"; 4 -> "4副牌（8人）"
-            else -> "2副牌（4人）"
+            1 -> "1鍓墝锛?浜猴級"; 2 -> "2鍓墝锛?浜猴級"
+            3 -> "3鍓墝锛?浜猴級"; 4 -> "4鍓墝锛?浜猴級"
+            else -> "2鍓墝锛?浜猴級"
         }
 
         val remainingScore = tracker.getRemainingScoreValue()
@@ -97,14 +96,14 @@ class MainActivity : AppCompatActivity() {
         val playedCount = tracker.playedCards.size
 
         tvStatus.text = buildString {
-            append("牌局：$deckText | 级数：${displayLevel(config.currentLevel)}\n")
-            append("已出 $playedCount 张 | 剩余 ${tracker.getRemainingCards().size} 张\n")
-            append("分数：已吃 ${totalScore - remainingScore} / $totalScore 分")
+            append("鐗屽眬锛?deckText | 绾ф暟锛?{displayLevel(config.currentLevel)}\n")
+            append("宸插嚭 $playedCount 寮?| 鍓╀綑 ${tracker.getRemainingCards().size} 寮燶n")
+            append("鍓╀綑鍒嗘暟锛?remainingScore / $totalScore 鍒?)
         }
 
-        btnStartOverlay.text = if (isOverlayActive) "停止悬浮窗" else "启动悬浮窗"
+        btnStartOverlay.text = if (isOverlayActive) "鍋滄鎮诞绐? else "鍚姩鎮诞绐?
         btnStartCapture.visibility = if (isOverlayActive) View.VISIBLE else View.GONE
-        btnStartCapture.text = if (isCaptureActive) "停止截屏" else "开始截屏"
+        btnStartCapture.text = if (isCaptureActive) "鍋滄鎴睆" else "寮€濮嬫埅灞?
     }
 
     private fun displayLevel(value: Int): String = when (value) {
@@ -140,16 +139,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestOverlayPermission() {
         AlertDialog.Builder(this)
-            .setTitle("需要悬浮窗权限")
-            .setMessage("记牌器需要悬浮窗权限才能在游戏上方显示。请在接下来的设置中允许显示在其他应用上层。")
-            .setPositiveButton("去设置") { _, _ ->
+            .setTitle("闇€瑕佹偓娴獥鏉冮檺")
+            .setMessage("璁扮墝鍣ㄩ渶瑕佹偓娴獥鏉冮檺鎵嶈兘鍦ㄦ父鎴忎笂鏂规樉绀恒€傝鍦ㄦ帴涓嬫潵鐨勮缃腑鍏佽鏄剧ず鍦ㄥ叾浠栧簲鐢ㄤ笂灞傘€?)
+            .setPositiveButton("鍘昏缃?) { _, _ ->
                 val intent = Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:$packageName")
                 )
                 overlayPermissionLauncher.launch(intent)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("鍙栨秷", null)
             .show()
     }
 
@@ -157,9 +156,9 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, OverlayService::class.java).apply {
             action = OverlayService.ACTION_SHOW
         }
-        ContextCompat.startForegroundService(this, intent)
+        startService(intent)
         isOverlayActive = true
-        Toast.makeText(this, "悬浮窗已启动", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "鎮诞绐楀凡鍚姩", Toast.LENGTH_SHORT).show()
         updateUI()
     }
 
@@ -182,15 +181,15 @@ class MainActivity : AppCompatActivity() {
         }
         ContextCompat.startForegroundService(this, intent)
         isCaptureActive = true
-        Toast.makeText(this, "自动识别已启动", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "鑷姩璇嗗埆宸插惎鍔?, Toast.LENGTH_SHORT).show()
         updateUI()
     }
 
     private fun showResetConfirmDialog() {
         AlertDialog.Builder(this)
-            .setTitle("重置牌局")
-            .setMessage("确定要重置所有出牌记录和统计数据吗？")
-            .setPositiveButton("确定") { _, _ ->
+            .setTitle("閲嶇疆鐗屽眬")
+            .setMessage("纭畾瑕侀噸缃墍鏈夊嚭鐗岃褰曞拰缁熻鏁版嵁鍚楋紵")
+            .setPositiveButton("纭畾") { _, _ ->
                 CardRecordsApp.instance.resetGame()
                 if (isOverlayActive) {
                     Intent(this, OverlayService::class.java).apply {
@@ -198,10 +197,10 @@ class MainActivity : AppCompatActivity() {
                         startService(this)
                     }
                 }
-                Toast.makeText(this, "牌局已重置", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "鐗屽眬宸查噸缃?, Toast.LENGTH_SHORT).show()
                 updateUI()
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("鍙栨秷", null)
             .show()
     }
 
@@ -214,19 +213,15 @@ class MainActivity : AppCompatActivity() {
         val rankNames = ranks.map { it.display }.toTypedArray()
 
         val builder = AlertDialog.Builder(this)
-        builder.setTitle("手动添加已出牌")
+        builder.setTitle("鎵嬪姩娣诲姞鍑虹墝")
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 30, 60, 30)
         }
 
-        // Suit
-        layout.addView(TextView(this).apply {
-            text = "花色："
-            setTextColor(-0x1)
-            textSize = 15f
-        })
+        // Suit spinner
+        layout.addView(createLabel("鑺辫壊锛?))
         val suitSpinner = Spinner(this)
         ArrayAdapter(this, android.R.layout.simple_spinner_item, suitNames).also { adapter ->
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -234,13 +229,8 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(suitSpinner)
 
-        // Rank
-        layout.addView(TextView(this).apply {
-            text = "牌面："
-            setTextColor(-0x1)
-            textSize = 15f
-            setPadding(0, 12, 0, 0)
-        })
+        // Rank spinner
+        layout.addView(createLabel("鐗岄潰锛?))
         val rankSpinner = Spinner(this)
         ArrayAdapter(this, android.R.layout.simple_spinner_item, rankNames).also { adapter ->
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -250,19 +240,30 @@ class MainActivity : AppCompatActivity() {
 
         // Joker checkbox
         val jokerCheck = CheckBox(this).apply {
-            text = "王牌（大小王）"
+            text = "鐜嬬墝"
             setTextColor(-0x1)
-            setPadding(0, 12, 0, 0)
         }
         layout.addView(jokerCheck)
 
-        // Player
-        layout.addView(TextView(this).apply {
-            text = "出牌玩家："
-            setTextColor(-0x1)
-            textSize = 15f
-            setPadding(0, 12, 0, 0)
-        })
+        // Joker type spinner (shown only when joker is checked)
+        layout.addView(createLabel("鐜嬬被鍨嬶細"))
+        val jokerTypeSpinner = Spinner(this)
+        ArrayAdapter(this, android.R.layout.simple_spinner_item,
+            arrayOf("灏忕帇", "澶х帇")).also { adapter ->
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            jokerTypeSpinner.adapter = adapter
+        }
+        jokerTypeSpinner.visibility = View.GONE
+        layout.addView(jokerTypeSpinner)
+
+        jokerCheck.setOnCheckedChangeListener { _, isChecked ->
+            suitSpinner.isEnabled = !isChecked
+            rankSpinner.isEnabled = !isChecked
+            jokerTypeSpinner.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+
+        // Player spinner
+        layout.addView(createLabel("鍑虹墝鐜╁锛?))
         val playerNames = (0 until config.playerCount).map {
             PlayerPosition.fromIndex(it).label
         }.toTypedArray()
@@ -274,12 +275,7 @@ class MainActivity : AppCompatActivity() {
         layout.addView(playerSpinner)
 
         // Quantity
-        layout.addView(TextView(this).apply {
-            text = "数量（多副牌时）："
-            setTextColor(-0x1)
-            textSize = 15f
-            setPadding(0, 12, 0, 0)
-        })
+        layout.addView(createLabel("鏁伴噺锛堝鍓墝鏃讹級锛?))
         val countPicker = NumberPicker(this).apply {
             minValue = 1
             maxValue = config.numberOfDecks.coerceAtMost(4)
@@ -287,17 +283,24 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(countPicker)
 
+        // This round's remaining players (default: all 4)
+        layout.addView(createLabel("鏈疆鍏卞嚭鐗屼汉鏁帮細"))
+        val roundPlayerCount = NumberPicker(this).apply {
+            minValue = 1
+            maxValue = config.playerCount
+            value = config.playerCount
+            wrapSelectorWheel = false
+        }
+        layout.addView(roundPlayerCount)
+
         builder.setView(layout)
 
-        jokerCheck.setOnCheckedChangeListener { _, isChecked ->
-            suitSpinner.isEnabled = !isChecked
-            rankSpinner.isEnabled = !isChecked
-        }
-
-        builder.setPositiveButton("添加") { _, _ ->
+        builder.setPositiveButton("娣诲姞") { _, _ ->
             val isJoker = jokerCheck.isChecked
             val card = if (isJoker) {
-                Card(Suit.JOKER, Rank.SMALL_JOKER)
+                val jokerRank = if (jokerTypeSpinner.selectedItemPosition == 0)
+                    Rank.SMALL_JOKER else Rank.BIG_JOKER
+                Card(Suit.JOKER, jokerRank)
             } else {
                 val suit = suits[suitSpinner.selectedItemPosition]
                 val rank = ranks[rankSpinner.selectedItemPosition]
@@ -310,6 +313,8 @@ class MainActivity : AppCompatActivity() {
             repeat(count) {
                 tracker.recordPlayedCard(card, playerIdx)
             }
+            // Advance round for void-suit analysis
+            tracker.finishRound()
 
             if (isOverlayActive) {
                 Intent(this, OverlayService::class.java).apply {
@@ -317,11 +322,20 @@ class MainActivity : AppCompatActivity() {
                     startService(this)
                 }
             }
-            Toast.makeText(this, "已添加 ${card.displayName} × $count", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "宸叉坊鍔?${card.displayName} 脳 $count", Toast.LENGTH_SHORT).show()
             updateUI()
         }
 
-        builder.setNegativeButton("取消", null)
+        builder.setNegativeButton("鍙栨秷", null)
         builder.show()
     }
+
+    private fun createLabel(text: String): TextView = TextView(this).apply {
+        this.text = text
+        setTextColor(-0x1)
+        textSize = 15f
+        setPadding(0, 12, 0, 4)
+    }
 }
+
+

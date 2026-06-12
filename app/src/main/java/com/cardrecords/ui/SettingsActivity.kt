@@ -1,5 +1,6 @@
 package com.cardrecords.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -7,6 +8,7 @@ import androidx.appcompat.widget.SwitchCompat
 import com.cardrecords.CardRecordsApp
 import com.cardrecords.R
 import com.cardrecords.model.GameConfig
+import com.cardrecords.overlay.OverlayService
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -52,10 +54,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupNumberPicker() {
         val levelLabels = (2..14).map {
             when (it) {
-                11 -> "J"
-                12 -> "Q"
-                13 -> "K"
-                14 -> "A"
+                11 -> "J"; 12 -> "Q"; 13 -> "K"; 14 -> "A"
                 else -> it.toString()
             }
         }.toTypedArray()
@@ -71,8 +70,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupTransparencySeekBar() {
         seekBarTransparency.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val pct = progress.coerceIn(10, 90)
-                tvTransparencyValue.text = "$pct%"
+                tvTransparencyValue.text = "${progress.coerceIn(10, 90)}%"
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -116,6 +114,13 @@ class SettingsActivity : AppCompatActivity() {
         )
 
         CardRecordsApp.instance.updateConfig(newConfig)
+
+        // Notify overlay to apply config changes live
+        val overlayIntent = Intent(this, OverlayService::class.java).apply {
+            action = OverlayService.ACTION_APPLY_CONFIG
+        }
+        startService(overlayIntent)
+
         Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show()
         finish()
     }

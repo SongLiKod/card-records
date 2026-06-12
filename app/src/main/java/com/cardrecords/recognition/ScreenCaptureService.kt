@@ -1,7 +1,6 @@
 package com.cardrecords.recognition
 
 import android.app.*
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
@@ -121,11 +120,18 @@ class ScreenCaptureService : Service() {
 
             if (recognizedCards.isNotEmpty()) {
                 val tracker = CardRecordsApp.instance.cardTracker
+                var newCards = 0
                 for (card in recognizedCards) {
                     if (!tracker.isCardPlayed(card)) {
                         tracker.recordPlayedCard(card, 0)
+                        newCards++
                     }
                 }
+                // Advance the round to enable void-suit analysis based on leading
+                if (newCards > 0) {
+                    tracker.finishRound()
+                }
+
                 val updateIntent = Intent(this@ScreenCaptureService, OverlayService::class.java).apply {
                     action = OverlayService.ACTION_UPDATE
                 }
@@ -172,8 +178,8 @@ class ScreenCaptureService : Service() {
     private fun createNotification(): Notification {
         val channelId = CardRecordsApp.CHANNEL_OVERLAY
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("拖拉机记牌器")
-            .setContentText("正在截取屏幕…")
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(getString(R.string.capturing))
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .setOngoing(true)
             .build()

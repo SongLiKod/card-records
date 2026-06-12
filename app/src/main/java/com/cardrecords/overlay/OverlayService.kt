@@ -1,20 +1,17 @@
 package com.cardrecords.overlay
 
-import android.app.*
-import android.content.Context
+import android.app.Service
 import android.content.Intent
 import android.graphics.*
 import android.os.Build
 import android.os.IBinder
 import android.view.*
 import android.widget.*
-import androidx.core.app.NotificationCompat
 import com.cardrecords.CardRecordsApp
 import com.cardrecords.R
 import com.cardrecords.logic.ScoreCalculator
 import com.cardrecords.logic.VoidSuitAnalyzer
 import com.cardrecords.model.*
-import com.cardrecords.ui.MainActivity
 import kotlinx.coroutines.*
 
 class OverlayService : Service() {
@@ -44,8 +41,12 @@ class OverlayService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_SHOW -> showOverlay()
-            ACTION_HIDE -> hideOverlay()
+            ACTION_HIDE -> stopSelf()
             ACTION_UPDATE -> updateDisplay()
+            ACTION_APPLY_CONFIG -> {
+                updateOverlayAlpha()
+                updateDisplay()
+            }
             ACTION_RESET -> {
                 app.resetGame()
                 updateDisplay()
@@ -59,9 +60,6 @@ class OverlayService : Service() {
     private fun showOverlay() {
         if (overlayView != null) return
 
-        val notification = createNotification()
-        startForeground(NOTIFICATION_ID, notification)
-
         val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
         overlayView = inflater.inflate(R.layout.overlay_collapsed, null) as ViewGroup
         expandedView = inflater.inflate(R.layout.overlay_expanded, null) as ViewGroup
@@ -69,35 +67,17 @@ class OverlayService : Service() {
         setupCollapsedView()
         setupExpandedView()
         showCollapsedView()
-
         startAutoRefresh()
-    }
-
-    private fun createNotification(): Notification {
-        val channelId = CardRecordsApp.CHANNEL_OVERLAY
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("拖拉机记牌器")
-            .setContentText("悬浮窗已显示")
-            .setSmallIcon(android.R.drawable.ic_menu_sort_by_size)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .build()
     }
 
     private fun setupCollapsedView() {
         val view = overlayView ?: return
-        val dragHandle = view.findViewById<View>(R.id.drag_handle)
 
         view.setOnClickListener {
             if (!isDragging) toggleExpand()
         }
 
-        dragHandle.setOnTouchListener { _, event ->
+        view.findViewById<View>(R.id.drag_handle).setOnTouchListener { _, event ->
             handleDrag(event, view)
             true
         }
@@ -108,8 +88,7 @@ class OverlayService : Service() {
     }
 
     private fun setupExpandedView() {
-        val view = expandedView ?: return
-        view.findViewById<ImageButton>(R.id.btn_collapse).setOnClickListener {
+        expandedView?.findViewById<ImageButton>(R.id.btn_collapse)?.setOnClickListener {
             toggleExpand()
         }
     }
@@ -118,23 +97,12 @@ class OverlayService : Service() {
         try { expandedView?.let { windowManager.removeViewImmediate(it) } } catch (_: Exception) {}
         try { overlayView?.let { windowManager.removeViewImmediate(it) } } catch (_: Exception) {}
 
-        val config = app.gameConfig
-        params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
-            PixelFormat.TRANSLUCENT
+        params = buildLayoutParams(
+            isPassThrough = app.gameConfig.passThrough,
+            alpha = app.gameConfig.transparencyPercent.coerceIn(10, 90) / 100f
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 50
-            y = 200
-            alpha = config.transparencyPercent.coerceIn(10, 90) / 100f
+            x = 50; y = 200
         }
 
         overlayView?.let { windowManager.addView(it, params) }
@@ -145,28 +113,59 @@ class OverlayService : Service() {
     private fun showExpandedView() {
         try { overlayView?.let { windowManager.removeViewImmediate(it) } } catch (_: Exception) {}
 
-        val config = app.gameConfig
-        params = WindowManager.LayoutParams(
+        params = buildLayoutParams(
+            isPassThrough = false,
+            alpha = ((app.gameConfig.transparencyPercent + 10).coerceIn(10, 90)) / 100f
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 50; y = 200
+        }
+
+        expandedView?.let { windowManager.addView(it, params) }
+        isExpanded = true
+        populateExpandedView()
+    }
+
+    private fun buildLayoutParams(isPassThrough: Boolean, alpha: Float): WindowManager.LayoutParams {
+        val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                (if (isPassThrough) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0)
+
+        return WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
                 WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            flags,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 50
-            y = 200
-            alpha = (config.transparencyPercent + 10).coerceIn(10, 90) / 100f
+            this.alpha = alpha
+        }
+    }
+
+    private fun updateOverlayAlpha() {
+        val alpha = app.gameConfig.transparencyPercent.coerceIn(10, 90) / 100f
+        val passThrough = app.gameConfig.passThrough
+
+        if (isExpanded) {
+            params?.alpha = ((app.gameConfig.transparencyPercent + 10).coerceIn(10, 90)) / 100f
+        } else {
+            params?.alpha = alpha
         }
 
-        expandedView?.let { windowManager.addView(it, params) }
-        isExpanded = true
-        populateExpandedView()
+        val currentView = if (isExpanded) expandedView else overlayView
+        if (currentView != null && params != null) {
+            params!!.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                    (if (passThrough && !isExpanded) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0)
+            try {
+                windowManager.updateViewLayout(currentView, params)
+            } catch (_: Exception) {}
+        }
     }
 
     private fun toggleExpand() {
@@ -199,7 +198,7 @@ class OverlayService : Service() {
         refreshJob?.cancel()
         refreshJob = scope.launch {
             while (isActive) {
-                if (isExpanded) populateExpandedView() else updateMiniDisplay()
+                updateDisplay()
                 delay(500)
             }
         }
@@ -224,7 +223,7 @@ class OverlayService : Service() {
     private fun populateExpandedView() {
         val view = expandedView ?: return
         try {
-            // Remaining cards section
+            // Remaining cards
             val remainingLayout = view.findViewById<LinearLayout>(R.id.layout_remaining_cards)
             remainingLayout?.removeAllViews()
             val remaining = tracker.getRemainingCardsBySuit()
@@ -236,7 +235,7 @@ class OverlayService : Service() {
                 }
             }
 
-            // Played cards section
+            // Played cards
             val playedLayout = view.findViewById<LinearLayout>(R.id.layout_played_cards)
             playedLayout?.removeAllViews()
             val played = tracker.getPlayedCardNames()
@@ -246,7 +245,7 @@ class OverlayService : Service() {
                 playedLayout?.addView(createTextItem(played.joinToString(" "), "#88FFFFFF"))
             }
 
-            // Score stats section
+            // Score stats
             val scoreLayout = view.findViewById<LinearLayout>(R.id.layout_score_stats)
             scoreLayout?.removeAllViews()
             val calculator = ScoreCalculator(tracker)
@@ -292,13 +291,12 @@ class OverlayService : Service() {
         val suitColor = if (suit == Suit.HEART || suit == Suit.DIAMOND)
             Color.parseColor("#FFE53935") else Color.WHITE
 
-        val suitLabel = TextView(this).apply {
+        row.addView(TextView(this).apply {
             text = suit.symbol
             setTextColor(suitColor)
             textSize = 13f
             setTypeface(null, Typeface.BOLD)
-        }
-        row.addView(suitLabel)
+        })
 
         val cardText = cards.joinToString(" ") { card ->
             if (highlightScore && card.rank.isScoreCard()) {
@@ -308,19 +306,14 @@ class OverlayService : Service() {
             }
         }
 
-        val cardsView = TextView(this).apply {
+        row.addView(TextView(this).apply {
             text = cardText
             setTextColor(Color.parseColor("#CCFFFFFF"))
             textSize = 11f
             setPadding(6, 0, 0, 0)
-        }
-        row.addView(cardsView)
+        })
 
         return row
-    }
-
-    private fun hideOverlay() {
-        stopSelf()
     }
 
     override fun onDestroy() {
@@ -340,6 +333,6 @@ class OverlayService : Service() {
         const val ACTION_HIDE = "com.cardrecords.action.HIDE_OVERLAY"
         const val ACTION_UPDATE = "com.cardrecords.action.UPDATE"
         const val ACTION_RESET = "com.cardrecords.action.RESET"
-        private const val NOTIFICATION_ID = 1001
+        const val ACTION_APPLY_CONFIG = "com.cardrecords.action.APPLY_CONFIG"
     }
 }

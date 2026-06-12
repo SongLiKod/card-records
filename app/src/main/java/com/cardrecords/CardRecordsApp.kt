@@ -25,7 +25,6 @@ class CardRecordsApp : Application() {
 
     fun resetGame() {
         cardTracker.reset()
-        cardTracker = CardTracker(gameConfig)
     }
 
     fun updateConfig(config: GameConfig) {

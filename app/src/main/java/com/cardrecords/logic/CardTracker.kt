@@ -42,17 +42,37 @@ class CardTracker(private var config: GameConfig) {
         return cards
     }
 
+    /**
+     * Record a single played card in the current round.
+     * Call [finishRound] after all cards of the current round are recorded
+     * to advance the round counter and enable void-suit analysis.
+     */
     fun recordPlayedCard(card: Card, playerIndex: Int) {
         _playedCards.add(PlayedCard(card, playerIndex % config.playerCount, currentRound))
     }
 
+    /**
+     * Record multiple cards in a batch and automatically advance to the next round.
+     */
     fun recordPlayedCards(cards: List<Pair<Card, Int>>) {
         cards.forEach { (card, playerIndex) ->
             recordPlayedCard(card, playerIndex)
         }
+        finishRound()
+    }
+
+    /**
+     * Advance the round counter. Call this after recording all cards for one
+     * round of play (e.g. all 4 players' cards from a screen capture).
+     */
+    fun finishRound() {
         currentRound++
     }
 
+    /**
+     * All remaining cards that have not been played yet.
+     * Correctly handles multi-deck by counting copies.
+     */
     fun getRemainingCards(): List<Card> {
         val playedCounts = _playedCards
             .map { it.card }
@@ -91,10 +111,6 @@ class CardTracker(private var config: GameConfig) {
         return Suit.nonJokerSuits().associateWith { suit ->
             all[suit]?.size ?: 0
         }
-    }
-
-    fun getPlayedScoreCards(): List<Card> {
-        return _playedCards.map { it.card }.filter { it.rank.isScoreCard() }
     }
 
     fun getRemainingScoreCounts(): Map<String, Int> {
@@ -138,25 +154,32 @@ class CardTracker(private var config: GameConfig) {
         }
     }
 
+    /**
+     * Detect void suits for a player using two rules:
+     * 1. If a player has played >= total cards of a suit, they are void.
+     * 2. If a player fails to follow the lead suit in any round, they are void.
+     */
     fun getVoidSuitsForPlayer(playerIndex: Int): Set<Suit> {
         val playerCards = _playedCards.filter { it.playerIndex == playerIndex }
         val nonJokerSuits = Suit.nonJokerSuits()
 
+        // Rule 1: played enough cards in a suit to exhaust it
         val voidFromCount = nonJokerSuits.filter { suit ->
             val playedCount = playerCards.count { it.card.suit == suit }
             playedCount >= config.cardsPerSuit
         }.toSet()
 
+        // Rule 2: failed to follow the lead suit in a round
         val voidFromLeading = mutableSetOf<Suit>()
         val roundsByNumber = _playedCards.groupBy { it.roundNumber }
         for ((_, roundCards) in roundsByNumber) {
-            if (roundCards.isEmpty()) continue
+            if (roundCards.size < 2) continue  // need at least 2 cards to infer
             val leadCard = roundCards.first()
             val leadSuit = leadCard.card.suit
             if (leadSuit == Suit.JOKER) continue
 
             val playerInRound = roundCards.find { it.playerIndex == playerIndex }
-            if (playerInRound != null && playerInRound.card.suit != leadSuit && leadSuit != Suit.JOKER) {
+            if (playerInRound != null && playerInRound.card.suit != leadSuit) {
                 voidFromLeading.add(leadSuit)
             }
         }
@@ -177,7 +200,6 @@ class CardTracker(private var config: GameConfig) {
     }
 
     fun isCardPlayed(card: Card): Boolean {
-        // In multi-deck, check if all copies of this card have been played
         val playedCount = _playedCards.count { it.card.displayName == card.displayName }
         val totalCount = totalCardCounts[card.displayName] ?: 0
         return playedCount >= totalCount
