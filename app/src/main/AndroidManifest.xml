@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.CAPTURE_VIDEO_OUTPUT" />
 
     <application
         android:name=".CardRecordsApp"
@@ -33,20 +34,10 @@
             android:exported="false"
             android:theme="@style/Theme.CardRecords" />
 
-        <!--
-          OverlayService: 浮窗管理，不涉及 MediaProjection。
-          作为普通 startService 运行（不调用 startForeground），
-          因此不需要 foregroundServiceType。
-        -->
         <service
             android:name=".overlay.OverlayService"
             android:exported="false" />
 
-        <!--
-          ScreenCaptureService: 使用 MediaProjection 截屏，
-          必须声明 foregroundServiceType="mediaProjection"
-          并持有 FOREGROUND_SERVICE_MEDIA_PROJECTION 权限。
-        -->
         <service
             android:name=".recognition.ScreenCaptureService"
             android:exported="false"

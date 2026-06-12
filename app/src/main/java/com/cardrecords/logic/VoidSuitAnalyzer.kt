@@ -13,12 +13,13 @@ class VoidSuitAnalyzer(private val tracker: CardTracker) {
 
     fun analyze(): List<VoidAnalysis> {
         val config = com.cardrecords.CardRecordsApp.instance.gameConfig
+        val labels = PlayerPosition.getLabels(config.playerCount)
         return (0 until config.playerCount).map { index ->
             val voidSuits = tracker.getVoidSuitsForPlayer(index)
             val confidence = calculateConfidence(index, voidSuits)
             VoidAnalysis(
                 playerIndex = index,
-                playerLabel = PlayerPosition.fromIndex(index).label,
+                playerLabel = labels.getOrElse(index) { "P${index + 1}" },
                 voidSuits = voidSuits,
                 confidence = confidence
             )

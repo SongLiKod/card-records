@@ -11,16 +11,13 @@ on:
   workflow_dispatch:
     inputs:
       build_type:
-        description: '构建类型'
+        description: 'Build type'
         required: true
         default: 'debug'
         type: choice
         options:
           - debug
           - release
-
-env:
-  GRADLE_VERSION: '8.9'
 
 jobs:
   build:
@@ -37,25 +34,8 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Setup Gradle and cache
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: ${{ env.GRADLE_VERSION }}
-          cache-disabled: false
-          cache-read-only: false
-
-      - name: Generate Gradle Wrapper
-        run: gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }}
-
-      - name: Cache Android SDK
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.android/cache
-            ~/.android/build-cache
-          key: ${{ runner.os }}-android-${{ hashFiles('**/*.gradle.kts') }}
-          restore-keys: |
-            ${{ runner.os }}-android-
 
       - name: Build Debug APK
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_type == 'debug' }}
@@ -72,11 +52,11 @@ jobs:
 
       - name: List APK files
         run: |
-          echo "### 📦 APK Outputs" >> $GITHUB_STEP_SUMMARY
+          echo "### APK Outputs" >> $GITHUB_STEP_SUMMARY
           find app/build/outputs/apk -name '*.apk' -type f 2>/dev/null | while read f; do
             size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
-            echo "- \`$f\` ($(( size / 1024 )) KB)" >> $GITHUB_STEP_SUMMARY
-          done || echo "- ❌ No APK found" >> $GITHUB_STEP_SUMMARY
+            echo "- $f ($(( size / 1024 )) KB)" >> $GITHUB_STEP_SUMMARY
+          done || echo "- No APK found" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Debug APK
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_type == 'debug' }}
@@ -99,16 +79,14 @@ jobs:
       - name: Build Summary
         run: |
           {
-            echo "## ✅ 构建完成"
+            echo "## Build Complete"
             echo ""
-            echo "| 项目 | 值 |"
-            echo "|------|-----|"
-            echo "| 提交 | \`${{ github.sha }}\` |"
-            echo "| 分支 | \`${{ github.ref_name }}\` |"
-            echo "| 构建类型 | ${{ github.event_name == 'workflow_dispatch' && inputs.build_type || 'debug' }} |"
-            echo "| Gradle | ${{ env.GRADLE_VERSION }} |"
-            echo "| JDK | 17 (temurin) |"
-            echo "| 触发方式 | ${{ github.event_name }} |"
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Commit | ${{ github.sha }} |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Build type | ${{ github.event_name == 'workflow_dispatch' && inputs.build_type || 'debug' }} |"
+            echo "| Trigger | ${{ github.event_name }} |"
           } >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup

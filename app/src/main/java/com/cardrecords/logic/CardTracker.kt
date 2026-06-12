@@ -24,6 +24,10 @@ class CardTracker(private var config: GameConfig) {
         reset()
     }
 
+    fun updateConfigRef(newConfig: GameConfig) {
+        config = newConfig
+    }
+
     private fun generateAllCards(): List<Card> {
         val cards = mutableListOf<Card>()
         val decks = config.numberOfDecks

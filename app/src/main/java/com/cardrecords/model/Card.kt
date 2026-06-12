@@ -3,14 +3,15 @@ package com.cardrecords.model
 import android.content.Context
 
 enum class Suit(val symbol: String, val displayName: String) {
-    SPADE("S", "Spade"),
-    HEART("H", "Heart"),
-    CLUB("C", "Club"),
-    DIAMOND("D", "Diamond"),
+    SPADE("\u2660", "Spade"),
+    HEART("\u2665", "Heart"),
+    CLUB("\u2663", "Club"),
+    DIAMOND("\u2666", "Diamond"),
     JOKER("J", "Joker");
 
     companion object {
         fun nonJokerSuits(): List<Suit> = entries.filter { it != JOKER }
+        fun fromSymbol(ch: Char): Suit? = entries.firstOrNull { it.symbol == ch.toString() }
     }
 }
 
@@ -30,8 +31,17 @@ data class Card(val suit: Suit, val rank: Rank, val deckIndex: Int = 0) {
 }
 
 enum class PlayerPosition(val label: String) {
-    SELF("Self"), LEFT("Left"), OPPOSITE("Across"), RIGHT("Right");
-    companion object { fun fromIndex(index: Int): PlayerPosition = entries[index % entries.size] }
+    SELF("Self"), LEFT("Left"), OPPOSITE("Across"), RIGHT("Right"),
+    LEFT2("Left-2"), RIGHT2("Right-2"), LEFT3("Left-3"), RIGHT3("Right-3");
+    companion object {
+        fun fromIndex(index: Int): PlayerPosition = entries[index.coerceIn(0, entries.size - 1)]
+        fun getLabels(count: Int): List<String> = when (count) {
+            4 -> listOf("Self", "Left", "Across", "Right")
+            6 -> listOf("Self", "Left-1", "Left-2", "Across", "Right-2", "Right-1")
+            8 -> listOf("Self", "Left-1", "Left-2", "Left-3", "Across", "Right-3", "Right-2", "Right-1")
+            else -> (0 until count).map { "P${it + 1}" }
+        }
+    }
 }
 
 data class PlayedCard(val card: Card, val playerIndex: Int, val roundNumber: Int, val timestamp: Long = System.currentTimeMillis())

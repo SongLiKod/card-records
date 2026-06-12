@@ -28,9 +28,19 @@ class CardRecordsApp : Application() {
     }
 
     fun updateConfig(config: GameConfig) {
+        val oldConfig = gameConfig
         gameConfig = config
         GameConfig.saveConfig(this, config)
-        cardTracker = CardTracker(config)
+
+        // Only recreate tracker if deck/player config actually changed.
+        // Otherwise just update config reference to preserve recorded cards.
+        if (config.numberOfDecks != oldConfig.numberOfDecks ||
+            config.playerCount != oldConfig.playerCount ||
+            config.currentLevel != oldConfig.currentLevel) {
+            cardTracker = CardTracker(config)
+        } else {
+            cardTracker.updateConfigRef(config)
+        }
     }
 
     private fun createNotificationChannels() {

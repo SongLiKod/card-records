@@ -26,6 +26,8 @@ class OverlayService : Service() {
     private var initialTouchX = 0f
     private var initialTouchY = 0f
     private var params: WindowManager.LayoutParams? = null
+    private var gestureDetector: GestureDetector? = null
+    private var overlayShown = false
 
     private var refreshJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -39,40 +41,63 @@ class OverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Always ensure overlay is displayed and auto-refresh is running
+        // on every service start, even from START_STICKY restart.
+        ensureOverlayRunning()
         when (intent?.action) {
-            ACTION_SHOW -> showOverlay()
+            ACTION_SHOW -> { /* ensureOverlayRunning already called */ }
             ACTION_HIDE -> stopSelf()
             ACTION_UPDATE -> updateDisplay()
             ACTION_APPLY_CONFIG -> { updateOverlayAlpha(); updateDisplay() }
             ACTION_RESET -> { app.resetGame(); updateDisplay() }
         }
+        isRunning = true
         return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun showOverlay() {
-        if (overlayView != null) return
+    private fun ensureOverlayRunning() {
+        if (overlayShown && overlayView != null) return
         val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
         overlayView = inflater.inflate(R.layout.overlay_collapsed, null) as ViewGroup
         expandedView = inflater.inflate(R.layout.overlay_expanded, null) as ViewGroup
+        gestureDetector = GestureDetector(this, OverlayGestureListener())
         setupCollapsedView()
         setupExpandedView()
         showCollapsedView()
         startAutoRefresh()
+        overlayShown = true
+    }
+
+    private inner class OverlayGestureListener : GestureDetector.SimpleOnGestureListener() {
+        override fun onDoubleTap(e: MotionEvent): Boolean {
+            toggleExpand()
+            return true
+        }
+        override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+            toggleExpand()
+            return true
+        }
     }
 
     private fun setupCollapsedView() {
         val view = overlayView ?: return
-        view.setOnClickListener { if (!isDragging) toggleExpand() }
-        view.findViewById<View>(R.id.drag_handle).setOnTouchListener { _, event ->
-            handleDrag(event, view); true
+        view.setOnTouchListener { v, event ->
+            gestureDetector?.onTouchEvent(event)
+            handleDrag(event, view)
+            true
         }
         view.findViewById<ImageButton>(R.id.btn_close).setOnClickListener { stopSelf() }
     }
 
     private fun setupExpandedView() {
-        expandedView?.findViewById<ImageButton>(R.id.btn_collapse)?.setOnClickListener { toggleExpand() }
+        val view = expandedView ?: return
+        view.setOnTouchListener { v, event ->
+            handleDrag(event, view)
+            true
+        }
+        view.findViewById<ImageButton>(R.id.btn_collapse)?.setOnClickListener { toggleExpand() }
     }
 
     private fun showCollapsedView() {
@@ -115,41 +140,66 @@ class OverlayService : Service() {
 
     private fun updateOverlayAlpha() {
         val passThrough = app.gameConfig.passThrough
-        if (isExpanded) { params?.alpha = ((app.gameConfig.transparencyPercent + 10).coerceIn(10, 90)) / 100f }
-        else { params?.alpha = app.gameConfig.transparencyPercent.coerceIn(10, 90) / 100f }
-        val currentView = if (isExpanded) expandedView else overlayView
-        if (currentView != null && params != null) {
-            params!!.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-                    (if (passThrough && !isExpanded) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0)
-            try { windowManager.updateViewLayout(currentView, params) } catch (_: Exception) {}
+        // Adjust alpha differently for expanded vs collapsed
+        val targetAlpha = if (isExpanded) {
+            ((app.gameConfig.transparencyPercent + 10).coerceIn(10, 90)) / 100f
+        } else {
+            app.gameConfig.transparencyPercent.coerceIn(10, 90) / 100f
         }
+        params?.alpha = targetAlpha
+        val currentFlags = params?.flags ?: 0
+        params?.flags = if (passThrough) {
+            currentFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        } else {
+            currentFlags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        }
+        try {
+            val activeView = if (isExpanded) expandedView else overlayView
+            activeView?.let { windowManager.updateViewLayout(it, params) }
+        } catch (_: Exception) {}
     }
-
-    private fun toggleExpand() { if (isExpanded) showCollapsedView() else showExpandedView() }
 
     private fun handleDrag(event: MotionEvent, view: View) {
         when (event.action) {
-            MotionEvent.ACTION_DOWN -> { isDragging = false; initialTouchX = event.rawX; initialTouchY = event.rawY; initialX = params?.x ?: 0; initialY = params?.y ?: 0 }
+            MotionEvent.ACTION_DOWN -> {
+                isDragging = false
+                initialX = params?.x ?: 0
+                initialY = params?.y ?: 0
+                initialTouchX = event.rawX
+                initialTouchY = event.rawY
+            }
             MotionEvent.ACTION_MOVE -> {
-                val dx = (event.rawX - initialTouchX).toInt(); val dy = (event.rawY - initialTouchY).toInt()
-                if (kotlin.math.abs(dx) > 10 || kotlin.math.abs(dy) > 10) {
-                    isDragging = true; params?.x = initialX + dx; params?.y = initialY + dy
-                    params?.let { windowManager.updateViewLayout(view, it) }
-                }
+                val dx = (event.rawX - initialTouchX).toInt()
+                val dy = (event.rawY - initialTouchY).toInt()
+                if (Math.abs(dx) > 10 || Math.abs(dy) > 10) isDragging = true
+                params?.x = initialX + dx
+                params?.y = initialY + dy
+                try { windowManager.updateViewLayout(view, params) } catch (_: Exception) {}
             }
         }
+    }
+
+    private fun toggleExpand() {
+        if (isDragging) return
+        if (overlayView == null || expandedView == null) return
+        if (isExpanded) showCollapsedView() else showExpandedView()
     }
 
     private fun startAutoRefresh() {
         refreshJob?.cancel()
         refreshJob = scope.launch {
-            while (isActive) { updateDisplay(); delay(500) }
+            while (isActive) {
+                if (overlayView != null) {
+                    updateDisplay()
+                }
+                delay(500)
+            }
         }
     }
 
-    fun updateDisplay() { if (isExpanded) populateExpandedView() else updateMiniDisplay() }
+    private fun updateDisplay() {
+        if (isExpanded) populateExpandedView() else updateMiniDisplay()
+    }
 
     private fun updateMiniDisplay() {
         val view = overlayView ?: return
@@ -228,9 +278,16 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
-        refreshJob?.cancel(); scope.cancel()
-        try { overlayView?.let { windowManager.removeView(it) }; expandedView?.let { windowManager.removeView(it) } } catch (_: Exception) {}
-        overlayView = null; expandedView = null
+        isRunning = false
+        refreshJob?.cancel()
+        scope.cancel()
+        try {
+            overlayView?.let { windowManager.removeView(it) }
+            expandedView?.let { windowManager.removeView(it) }
+        } catch (_: Exception) {}
+        overlayView = null
+        expandedView = null
+        overlayShown = false
         super.onDestroy()
     }
 
@@ -240,5 +297,9 @@ class OverlayService : Service() {
         const val ACTION_UPDATE = "com.cardrecords.action.UPDATE"
         const val ACTION_RESET = "com.cardrecords.action.RESET"
         const val ACTION_APPLY_CONFIG = "com.cardrecords.action.APPLY_CONFIG"
+
+        @Volatile
+        var isRunning = false
+            private set
     }
 }

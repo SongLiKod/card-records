@@ -30,7 +30,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSettings: Button
     private lateinit var tvStatus: TextView
 
-    private var isOverlayActive = false
     private var isCaptureActive = false
 
     private val overlayPermissionLauncher = registerForActivityResult(
@@ -39,7 +38,7 @@ class MainActivity : AppCompatActivity() {
         if (checkOverlayPermission()) {
             startOverlayService()
         } else {
-            Toast.makeText(this@MainActivity, "Permission needed", Toast.LENGTH_LONG).show()
+            Toast.makeText(this@MainActivity, "Overlay permission required", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -49,7 +48,7 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             startCaptureService(result.resultCode, result.data!!)
         } else {
-            Toast.makeText(this@MainActivity, "Permission needed", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, "Screen capture permission required", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -81,18 +80,19 @@ class MainActivity : AppCompatActivity() {
         val app = CardRecordsApp.instance
         val config = app.gameConfig
         val tracker = app.cardTracker
+        val overlayRunning = OverlayService.isRunning
         val deckLabel = when (config.numberOfDecks) {
             1 -> "1 deck (4p)"; 2 -> "2 decks (4p)"
             3 -> "3 decks (6p)"; 4 -> "4 decks (8p)"
             else -> "2 decks (4p)"
         }
         tvStatus.text = buildString {
-            append("Game: ${deckLabel} | Level: ${displayLevel(config.currentLevel)}\n")
+            append("Game: $deckLabel | Level: ${displayLevel(config.currentLevel)}\n")
             append("Played: ${tracker.playedCards.size} | Left: ${tracker.getRemainingCards().size}\n")
             append("Score left: ${tracker.getRemainingScoreValue()} / ${config.totalScore}")
         }
-        btnStartOverlay.text = if (isOverlayActive) "Stop Overlay" else "Start Overlay"
-        btnStartCapture.visibility = if (isOverlayActive) View.VISIBLE else View.GONE
+        btnStartOverlay.text = if (overlayRunning) "Stop Overlay" else "Start Overlay"
+        btnStartCapture.visibility = if (overlayRunning) View.VISIBLE else View.GONE
         btnStartCapture.text = if (isCaptureActive) "Stop Capture" else "Start Capture"
     }
 
@@ -102,9 +102,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onOverlayToggle() {
-        if (isOverlayActive) {
+        if (OverlayService.isRunning) {
             stopService(Intent(this@MainActivity, OverlayService::class.java))
-            isOverlayActive = false
         } else {
             if (!checkOverlayPermission()) { requestOverlayPermission(); return }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -119,33 +118,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkOverlayPermission(): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(this@MainActivity) else true
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(this@MainActivity)
+        else true
 
     private fun requestOverlayPermission() {
-        AlertDialog.Builder(this@MainActivity)
-            .setTitle("Need Overlay Permission")
-            .setMessage("Card tracker needs overlay permission to show on top of games.")
-            .setPositiveButton("Go to Settings") { _, _ ->
-                overlayPermissionLauncher.launch(
-                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${packageName}"))
-                )
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            overlayPermissionLauncher.launch(intent)
+        }
     }
 
     private fun startOverlayService() {
-        startService(Intent(this@MainActivity, OverlayService::class.java).apply {
+        val intent = Intent(this@MainActivity, OverlayService::class.java).apply {
             action = OverlayService.ACTION_SHOW
-        })
-        isOverlayActive = true
+        }
+        startService(intent)
         Toast.makeText(this@MainActivity, "Overlay started", Toast.LENGTH_SHORT).show()
         updateUI()
     }
 
     private fun onCaptureToggle() {
         if (isCaptureActive) {
-            stopService(Intent(this@MainActivity, ScreenCaptureService::class.java))
+            stopService(Intent(this@MainActivity, ScreenCaptureService::class.java).apply {
+                action = ScreenCaptureService.ACTION_STOP
+            })
             isCaptureActive = false
         } else {
             val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -155,12 +154,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startCaptureService(resultCode: Int, data: Intent) {
-        ContextCompat.startForegroundService(this@MainActivity,
-            Intent(this@MainActivity, ScreenCaptureService::class.java).apply {
-                action = ScreenCaptureService.ACTION_START
-                putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, resultCode)
-                putExtra(ScreenCaptureService.EXTRA_DATA, data)
-            })
+        val intent = Intent(this@MainActivity, ScreenCaptureService::class.java).apply {
+            action = ScreenCaptureService.ACTION_START
+            putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, resultCode)
+            putExtra(ScreenCaptureService.EXTRA_DATA, data)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
         isCaptureActive = true
         Toast.makeText(this@MainActivity, "Capture started", Toast.LENGTH_SHORT).show()
         updateUI()
@@ -172,7 +175,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage("Reset all card records?")
             .setPositiveButton("Reset") { _, _ ->
                 CardRecordsApp.instance.resetGame()
-                if (isOverlayActive) {
+                if (OverlayService.isRunning) {
                     startService(Intent(this@MainActivity, OverlayService::class.java).apply {
                         action = OverlayService.ACTION_RESET
                     })
@@ -228,7 +231,7 @@ class MainActivity : AppCompatActivity() {
 
         layout.addView(TextView(this@MainActivity).apply { text = "Player:"; setTextColor(-0x1); textSize = 15f; setPadding(0,12,0,4) })
         val playerSpinner = Spinner(this@MainActivity)
-        val playerLabels = (0 until config.playerCount).map { PlayerPosition.fromIndex(it).label }.toTypedArray()
+        val playerLabels = PlayerPosition.getLabels(config.playerCount).toTypedArray()
         ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, playerLabels).also {
             it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item); playerSpinner.adapter = it
         }
@@ -237,6 +240,7 @@ class MainActivity : AppCompatActivity() {
         layout.addView(TextView(this@MainActivity).apply { text = "Qty:"; setTextColor(-0x1); textSize = 15f; setPadding(0,12,0,4) })
         val countPicker = NumberPicker(this@MainActivity).apply {
             minValue = 1; maxValue = config.numberOfDecks.coerceAtMost(4); wrapSelectorWheel = false
+            value = 1
         }
         layout.addView(countPicker)
 
@@ -249,12 +253,12 @@ class MainActivity : AppCompatActivity() {
             val tracker = CardRecordsApp.instance.cardTracker
             repeat(count) { tracker.recordPlayedCard(card, playerSpinner.selectedItemPosition) }
             tracker.finishRound()
-            if (isOverlayActive) {
+            if (OverlayService.isRunning) {
                 startService(Intent(this@MainActivity, OverlayService::class.java).apply {
                     action = OverlayService.ACTION_UPDATE
                 })
             }
-            Toast.makeText(this@MainActivity, "Added ${card.displayName} x ${count}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, "Added ${card.displayName} x $count", Toast.LENGTH_SHORT).show()
             updateUI()
         }
         builder.setNegativeButton("Cancel", null)

@@ -1,5 +1,4 @@
 package com.cardrecords.recognition
-
 import android.app.*
 import android.content.Intent
 import android.graphics.Bitmap
@@ -20,24 +19,19 @@ import com.cardrecords.CardRecordsApp
 import com.cardrecords.R
 import com.cardrecords.overlay.OverlayService
 import kotlinx.coroutines.*
-
 class ScreenCaptureService : Service() {
-
     private var mediaProjection: MediaProjection? = null
     private var imageReader: ImageReader? = null
     private var handlerThread: HandlerThread? = null
     private var captureHandler: Handler? = null
     private var isCapturing = false
-
     private val cardRecognizer = CardRecognizer()
     private var captureIntervalMs = 1000L
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-
     override fun onCreate() {
         super.onCreate()
         cardRecognizer.initialize(this)
     }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
@@ -56,31 +50,22 @@ class ScreenCaptureService : Service() {
         }
         return START_NOT_STICKY
     }
-
     override fun onBind(intent: Intent?): IBinder? = null
-
     private fun startCapture(resultCode: Int, data: Intent) {
         if (isCapturing) return
-
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification)
-
         val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         mediaProjection = projectionManager.getMediaProjection(resultCode, data)
-
         val metrics = DisplayMetrics()
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         wm.defaultDisplay.getMetrics(metrics)
-
         val densityDpi = metrics.densityDpi
         val width = metrics.widthPixels
         val height = metrics.heightPixels
-
         imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
-
         handlerThread = HandlerThread("CaptureThread").apply { start() }
         captureHandler = Handler(handlerThread!!.looper)
-
         mediaProjection?.createVirtualDisplay(
             "CaptureDisplay",
             width, height, densityDpi,
@@ -89,11 +74,9 @@ class ScreenCaptureService : Service() {
             null,
             captureHandler
         )
-
         isCapturing = true
         startCaptureLoop()
     }
-
     private fun startCaptureLoop() {
         captureHandler?.post(object : Runnable {
             override fun run() {
@@ -106,18 +89,15 @@ class ScreenCaptureService : Service() {
             }
         })
     }
-
     private fun processImageAsync(image: Image) {
         scope.launch {
             processImage(image)
         }
     }
-
     private suspend fun processImage(image: Image) {
         try {
             val bitmap = imageToBitmap(image)
             val recognizedCards = cardRecognizer.recognizeCards(bitmap)
-
             if (recognizedCards.isNotEmpty()) {
                 val tracker = CardRecordsApp.instance.cardTracker
                 var newCards = 0
@@ -127,11 +107,9 @@ class ScreenCaptureService : Service() {
                         newCards++
                     }
                 }
-                // Advance the round to enable void-suit analysis based on leading
                 if (newCards > 0) {
                     tracker.finishRound()
                 }
-
                 val updateIntent = Intent(this@ScreenCaptureService, OverlayService::class.java).apply {
                     action = OverlayService.ACTION_UPDATE
                 }
@@ -143,23 +121,31 @@ class ScreenCaptureService : Service() {
             image.close()
         }
     }
-
     private fun imageToBitmap(image: Image): Bitmap {
         val planes = image.planes
         val buffer = planes[0].buffer
         val pixelStride = planes[0].pixelStride
         val rowStride = planes[0].rowStride
-        val rowPadding = rowStride - pixelStride * image.width
-
-        val bitmap = Bitmap.createBitmap(
-            image.width + rowPadding / pixelStride,
-            image.height,
-            Bitmap.Config.ARGB_8888
-        )
-        bitmap.copyPixelsFromBuffer(buffer)
-        return Bitmap.createBitmap(bitmap, 0, 0, image.width, image.height)
+        val width = image.width
+        val height = image.height
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val pixels = IntArray(width * height)
+        buffer.rewind()
+        var idx = 0
+        for (y in 0 until height) {
+            val rowStart = y * rowStride
+            for (x in 0 until width) {
+                val pos = rowStart + x * pixelStride
+                val r = buffer.get(pos).toInt() and 0xFF
+                val g = buffer.get(pos + 1).toInt() and 0xFF
+                val b = buffer.get(pos + 2).toInt() and 0xFF
+                val a = buffer.get(pos + 3).toInt() and 0xFF
+                pixels[idx++] = (a shl 24) or (r shl 16) or (g shl 8) or b
+            }
+        }
+        bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
+        return bitmap
     }
-
     private fun stopCapture() {
         isCapturing = false
         scope.cancel()
@@ -174,7 +160,6 @@ class ScreenCaptureService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
-
     private fun createNotification(): Notification {
         val channelId = CardRecordsApp.CHANNEL_OVERLAY
         return NotificationCompat.Builder(this, channelId)
@@ -184,12 +169,10 @@ class ScreenCaptureService : Service() {
             .setOngoing(true)
             .build()
     }
-
     override fun onDestroy() {
         stopCapture()
         super.onDestroy()
     }
-
     companion object {
         const val ACTION_START = "com.cardrecords.action.START_CAPTURE"
         const val ACTION_STOP = "com.cardrecords.action.STOP_CAPTURE"
